@@ -118,19 +118,6 @@
     .neg { color: var(--coral); }
     .neu { color: var(--sub); }
     .footer { text-align: center; margin-top: 1.5rem; font-family: "DM Mono", monospace; font-size: 11px; color: var(--muted); letter-spacing: .05em; }
-    .api-row { display: flex; gap: 8px; margin-top: 1rem; }
-    .api-input {
-      flex: 1; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--sub); font-family: "DM Mono", monospace; font-size: 11px;
-      outline: none; transition: border-color .2s;
-    }
-    .api-input:focus { border-color: var(--teal); color: var(--text); }
-    .api-save-btn {
-      padding: 10px 16px; background: transparent; border: 1px solid var(--border);
-      border-radius: 10px; color: var(--sub); font-family: "DM Mono", monospace;
-      font-size: 11px; cursor: pointer; transition: border-color .15s, color .15s;
-    }
-    .api-save-btn:hover { border-color: var(--teal); color: var(--teal); }
   </style>
 </head>
 <body>
@@ -150,10 +137,6 @@
     </div>
     <button class="analyze-btn" onclick="analyze()">Analyze</button>
     <div class="status-msg" id="statusMsg"></div>
-    <div class="api-row">
-      <input class="api-input" id="apiKeyInput" type="password" placeholder="YouTube API key (saved locally)" />
-      <button class="api-save-btn" onclick="saveKey()">Save key</button>
-    </div>
 
     <div id="result">
       <div class="divider"></div>
@@ -179,19 +162,10 @@
   <div class="footer">Built with 48,000+ videos · UCLA Art.Ificial 2026</div>
 </div>
 
+<script src="config.js"></script>
 <script>
   // ── CONFIG ────────────────────────────────────────────────────────────────
-  function getApiKey() { return localStorage.getItem("yt_api_key") || ""; }
-  function saveKey() {
-    const val = document.getElementById("apiKeyInput").value.trim();
-    if (!val) return;
-    localStorage.setItem("yt_api_key", val);
-    document.getElementById("apiKeyInput").value = "";
-    document.getElementById("apiKeyInput").placeholder = "API key saved ✓";
-  }
-  window.addEventListener("DOMContentLoaded", () => {
-    if (getApiKey()) document.getElementById("apiKeyInput").placeholder = "API key saved ✓";
-  });
+  // API_KEY is loaded from config.js (gitignored)
 
   // ── BENCHMARKS (from our 47,598-video dataset) ────────────────────────────
   // Viral threshold: top 10% = 206,748 views
@@ -356,9 +330,7 @@
 
   // ── API FETCH ─────────────────────────────────────────────────────────────
   async function fetchStats(videoId) {
-    const key  = getApiKey();
-    if (!key) throw new Error("No API key saved — paste your key and hit Save key");
-    const url  = `https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails,snippet&id=${videoId}&key=${key}`;
+    const url  = `https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails,snippet&id=${videoId}&key=${API_KEY}`;
     const res  = await fetch(url);
     const data = await res.json();
 
