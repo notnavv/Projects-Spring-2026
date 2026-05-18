@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataPath - Virality Score</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #0A0C10;
+      --surface: #111318;
+      --border:  #1E2330;
+      --teal:    #2DD4BF;
+      --teal-dk: #0D9488;
+      --coral:   #F97316;
+      --muted:   #4B5563;
+      --text:    #E8EDF5;
+      --sub:     #6B7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      font-family: "Syne", sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .wrapper { position: relative; z-index: 1; width: 100%; max-width: 580px; }
+    .header { margin-bottom: 2rem; text-align: center; }
+    .header-eyebrow {
+      font-family: "DM Mono", monospace;
+      font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--teal); margin-bottom: 10px;
+    }
+    .header-title {
+      font-size: 38px; font-weight: 800; line-height: 1.05;
+      background: linear-gradient(135deg, var(--text) 40%, var(--teal));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .header-sub { font-size: 14px; color: var(--sub); margin-top: 8px; font-weight: 400; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 2rem; }
+    .input-wrap { position: relative; margin-bottom: 12px; }
+    .input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 16px; pointer-events: none; }
+    .url-input {
+      width: 100%; padding: 14px 16px 14px 42px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+      color: var(--text); font-family: "DM Mono", monospace; font-size: 13px;
+      outline: none; transition: border-color .2s;
+    }
+    .url-input::placeholder { color: var(--muted); }
+    .url-input:focus { border-color: var(--teal); }
+    .analyze-btn {
+      width: 100%; padding: 14px; background: var(--teal); color: #050709;
+      border: none; border-radius: 12px; font-family: "Syne", sans-serif;
+      font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: .04em;
+      transition: background .15s, transform .1s;
+    }
+    .analyze-btn:hover  { background: #34d9c3; }
+    .analyze-btn:active { transform: scale(.985); }
+    .status-msg { font-family: "DM Mono", monospace; font-size: 12px; margin-top: 10px; min-height: 18px; }
+    .status-msg.error   { color: var(--coral); }
+    .status-msg.loading { color: var(--sub); }
+    #result { display: none; margin-top: 1.75rem; }
+    .divider { height: 1px; background: var(--border); margin-bottom: 1.75rem; }
+    .score-section { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1rem; }
+    .score-circle {
+      flex-shrink: 0; width: 96px; height: 96px; border-radius: 50%;
+      border: 3px solid var(--teal);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: var(--bg); position: relative;
+    }
+    .score-circle::after {
+      content: ""; position: absolute; inset: -8px;
+      border-radius: 50%; border: 1px solid var(--border);
+    }
+    .score-num { font-size: 34px; font-weight: 800; color: var(--teal); line-height: 1; }
+    .score-lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: .1em; color: var(--sub); text-transform: uppercase; margin-top: 2px; }
+    .score-info { flex: 1; min-width: 0; }
+    .score-verdict { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .score-title { font-family: "DM Mono", monospace; font-size: 11px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mode-badge {
+      display: inline-block; font-family: "DM Mono", monospace;
+      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 20px; margin-bottom: 1rem;
+    }
+    .mode-performance { background: #0D2A24; color: var(--teal); border: 1px solid var(--teal-dk); }
+    .mode-predictive  { background: #1F1508; color: var(--coral); border: 1px solid #7C3109; }
+    .breakdown-header {
+      font-family: "DM Mono", monospace; font-size: 10px;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--sub); margin-bottom: 10px;
+    }
+    .factor {
+      display: grid; grid-template-columns: 1fr auto; align-items: center;
+      gap: 12px; padding: 12px 14px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 6px; transition: border-color .15s;
+    }
+    .factor:hover { border-color: var(--muted); }
+    .factor-label { font-size: 13px; color: var(--text); font-weight: 500; }
+    .factor-delta { font-family: "DM Mono", monospace; font-size: 13px; font-weight: 500; white-space: nowrap; }
+    .pos { color: var(--teal); }
+    .neg { color: var(--coral); }
+    .neu { color: var(--sub); }
+    .footer { text-align: center; margin-top: 1.5rem; font-family: "DM Mono", monospace; font-size: 11px; color: var(--muted); letter-spacing: .05em; }
+    .api-row { display: flex; gap: 8px; margin-top: 1rem; }
+    .api-input {
+      flex: 1; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--sub); font-family: "DM Mono", monospace; font-size: 11px;
+      outline: none; transition: border-color .2s;
+    }
+    .api-input:focus { border-color: var(--teal); color: var(--text); }
+    .api-save-btn {
+      padding: 10px 16px; background: transparent; border: 1px solid var(--border);
+      border-radius: 10px; color: var(--sub); font-family: "DM Mono", monospace;
+      font-size: 11px; cursor: pointer; transition: border-color .15s, color .15s;
+    }
+    .api-save-btn:hover { border-color: var(--teal); color: var(--teal); }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <div class="header">
+    <div class="header-eyebrow">Art.Ificial · DataPath</div>
+    <h1 class="header-title">Virality Score</h1>
+    <p class="header-sub">Paste a YouTube URL, get a score, see why</p>
+  </div>
+
+  <div class="card">
+    <div class="input-wrap">
+      <span class="input-icon">🔗</span>
+      <input class="url-input" id="urlInput" type="text"
+        placeholder="https://www.youtube.com/shorts/..." />
+    </div>
+    <button class="analyze-btn" onclick="analyze()">Analyze</button>
+    <div class="status-msg" id="statusMsg"></div>
+    <div class="api-row">
+      <input class="api-input" id="apiKeyInput" type="password" placeholder="YouTube API key (saved locally)" />
+      <button class="api-save-btn" onclick="saveKey()">Save key</button>
+    </div>
+
+    <div id="result">
+      <div class="divider"></div>
+
+      <div class="score-section">
+        <div class="score-circle">
+          <div class="score-num" id="scoreNum">--</div>
+          <div class="score-lbl">/ 100</div>
+        </div>
+        <div class="score-info">
+          <div class="score-verdict" id="scoreVerdict"></div>
+          <div class="score-title"  id="scoreTitle"></div>
+        </div>
+      </div>
+
+      <div id="modeBadge"></div>
+
+      <div class="breakdown-header">What helped &amp; hurt</div>
+      <div id="breakdown"></div>
+    </div>
+  </div>
+
+  <div class="footer">Built with 48,000+ videos · UCLA Art.Ificial 2026</div>
+</div>
+
+<script>
+  // ── CONFIG ────────────────────────────────────────────────────────────────
+  function getApiKey() { return localStorage.getItem("yt_api_key") || ""; }
+  function saveKey() {
+    const val = document.getElementById("apiKeyInput").value.trim();
+    if (!val) return;
+    localStorage.setItem("yt_api_key", val);
+    document.getElementById("apiKeyInput").value = "";
+    document.getElementById("apiKeyInput").placeholder = "API key saved ✓";
+  }
+  window.addEventListener("DOMContentLoaded", () => {
+    if (getApiKey()) document.getElementById("apiKeyInput").placeholder = "API key saved ✓";
+  });
+
+  // ── BENCHMARKS (from our 47,598-video dataset) ────────────────────────────
+  // Viral threshold: top 10% = 206,748 views
+  // Best upload hours (by avg views): 3am, 3pm, 5am, midnight, 10pm
+  // Best days: Wednesday, Saturday, Thursday
+  // Best categories: Pets, Fitness, Music, Travel, DIY, Art, Education
+  const VIRAL_THRESHOLD  = 206748;
+  const NEW_VIDEO_CUTOFF = 50000;   // below this = treat as new/unpredicted
+  const BEST_HOURS   = new Set([3, 15, 5, 0, 22]);
+  const OK_HOURS     = new Set([1, 2, 4, 6, 12, 14, 16, 20, 21, 23]);
+  const BEST_DAYS    = new Set(["Wednesday", "Saturday", "Thursday"]);
+  const BEST_CATS    = new Set([10, 22, 17, 19, 26, 1, 27]); // YouTube category IDs
+  // 10=Music, 22=People&Blogs, 17=Sports, 19=Travel, 26=HowTo, 1=Film, 27=Education
+
+  // ── SCORING ───────────────────────────────────────────────────────────────
+  function scoreVideo(stats) {
+    let score = 50;
+    const breakdown = [];
+    const isNew = stats.views < NEW_VIDEO_CUTOFF;
+
+    function push(delta, label) {
+      score += delta;
+      breakdown.push({ delta, label });
+    }
+
+    if (!isNew) {
+      // ── PERFORMANCE MODE: video already has significant views ──────────────
+      // Weight actual performance metrics heavily
+
+      // 1. View count vs viral threshold
+      if      (stats.views >= 10000000) push(+25, `${fmt(stats.views)} views — mega viral 🔥`);
+      else if (stats.views >= 1000000)  push(+20, `${fmt(stats.views)} views — viral ✅`);
+      else if (stats.views >= VIRAL_THRESHOLD) push(+12, `${fmt(stats.views)} views — above viral threshold ✅`);
+      else if (stats.views >= 50000)    push(  0, `${fmt(stats.views)} views — building, not viral yet ➖`);
+      else                              push(-10, `${fmt(stats.views)} views — low ❌`);
+
+      // 2. Likes (raw count)
+      if      (stats.likes >= 500000) push(+18, `${fmt(stats.likes)} likes — massive engagement ✅`);
+      else if (stats.likes >= 100000) push(+12, `${fmt(stats.likes)} likes — very strong ✅`);
+      else if (stats.likes >= 10000)  push( +5, `${fmt(stats.likes)} likes — solid ✅`);
+      else if (stats.likes >= 1000)   push(  0, `${fmt(stats.likes)} likes — average ➖`);
+      else                            push(-10, `${fmt(stats.likes)} likes — low ❌`);
+
+      // 3. Comments (raw count)
+      if      (stats.comments >= 50000) push(+15, `${fmt(stats.comments)} comments — very high engagement ✅`);
+      else if (stats.comments >= 10000) push( +8, `${fmt(stats.comments)} comments — strong ✅`);
+      else if (stats.comments >= 1000)  push( +3, `${fmt(stats.comments)} comments — decent ✅`);
+      else if (stats.comments >= 100)   push(  0, `${fmt(stats.comments)} comments — average ➖`);
+      else                              push( -8, `${fmt(stats.comments)} comments — low ❌`);
+
+      // 4. Duration
+      if      (stats.duration <= 15)  push( +5, `Duration ${stats.duration}s — very short ✅`);
+      else if (stats.duration <= 60)  push( +3, `Duration ${stats.duration}s — sweet spot ✅`);
+      else if (stats.duration <= 120) push(  0, `Duration ${stats.duration}s — getting long ➖`);
+      else                            push( -5, `Duration ${stats.duration}s — too long for a Short ❌`);
+
+    } else {
+      // ── PREDICTIVE MODE: video is new or has low views ─────────────────────
+      // Weight signals we can observe before virality kicks in
+
+      // 1. Duration (biggest predictive signal we have)
+      if      (stats.duration <= 15)  push(+15, `Duration ${stats.duration}s — very short, high completion likely ✅`);
+      else if (stats.duration <= 60)  push(+10, `Duration ${stats.duration}s — in the sweet spot ✅`);
+      else if (stats.duration <= 120) push(  0, `Duration ${stats.duration}s — getting long ➖`);
+      else                            push(-15, `Duration ${stats.duration}s — too long for a Short ❌`);
+
+      // 2. Upload hour (from our dataset: 3am, 3pm, 5am perform best)
+      if      (BEST_HOURS.has(stats.uploadHour)) push(+12, `Posted at ${stats.uploadHour}:00 — one of the best hours in our dataset ✅`);
+      else if (OK_HOURS.has(stats.uploadHour))   push( +4, `Posted at ${stats.uploadHour}:00 — decent timing ➖`);
+      else                                        push( -5, `Posted at ${stats.uploadHour}:00 — off-peak timing ❌`);
+
+      // 3. Day of week (Wednesday, Saturday, Thursday perform best)
+      if (BEST_DAYS.has(stats.uploadDay)) push(+8, `Posted on ${stats.uploadDay} — a strong day in our dataset ✅`);
+      else                                push( 0, `Posted on ${stats.uploadDay} — average day ➖`);
+
+      // 4. Hashtag count (more hashtags = more discoverability, but diminishing returns)
+      if      (stats.hashtagCount >= 5 && stats.hashtagCount <= 15) push(+10, `${stats.hashtagCount} hashtags — well optimized ✅`);
+      else if (stats.hashtagCount >= 1 && stats.hashtagCount < 5)   push( +4, `${stats.hashtagCount} hashtag(s) — could use more ➖`);
+      else if (stats.hashtagCount > 15)                              push( -3, `${stats.hashtagCount} hashtags — possibly over-tagged ➖`);
+      else                                                           push(-10, `No hashtags found — low discoverability ❌`);
+
+      // 5. Title length (dataset shows ~23 chars is typical, extremes hurt)
+      const tl = stats.titleLength;
+      if      (tl >= 15 && tl <= 60) push( +8, `Title length ${tl} chars — in the optimal range ✅`);
+      else if (tl > 60)              push( -5, `Title length ${tl} chars — too long ❌`);
+      else                           push( -5, `Title length ${tl} chars — too short ❌`);
+
+      // 6. Category (Pets, Fitness, Music, Travel top our dataset)
+      if (BEST_CATS.has(stats.categoryId)) push(+7, `Category is one of the top-performing in our dataset ✅`);
+      else                                  push( 0, `Category is average in our dataset ➖`);
+    }
+
+    score = Math.max(0, Math.min(100, score));
+    return {
+      score,
+      isNew,
+      breakdown,
+      verdict: score >= 75 ? "Very likely viral 🔥" :
+               score >= 60 ? "Likely viral 📈" :
+               score >= 45 ? "Has potential ➖" : "Unlikely to go viral ❌"
+    };
+  }
+
+  // ── HELPERS ───────────────────────────────────────────────────────────────
+  function fmt(n) { return n.toLocaleString(); }
+
+  function getDayName(dateStr) {
+    const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    return days[new Date(dateStr).getDay()];
+  }
+
+  function parseDuration(isoStr) {
+    const mins = (isoStr.match(/(\d+)M/) || [0,0])[1];
+    const secs = (isoStr.match(/(\d+)S/) || [0,0])[1];
+    return parseInt(mins) * 60 + parseInt(secs);
+  }
+
+  function countHashtags(text) {
+    if (!text) return 0;
+    return (text.match(/#\w+/g) || []).length;
+  }
+
+  // ── DISPLAY ───────────────────────────────────────────────────────────────
+  function displayResult(stats, title) {
+    const result = scoreVideo(stats);
+
+    document.getElementById("scoreNum").textContent     = result.score;
+    document.getElementById("scoreVerdict").textContent = result.verdict;
+    document.getElementById("scoreTitle").textContent   = title;
+
+    const badge = document.getElementById("modeBadge");
+    if (result.isNew) {
+      badge.innerHTML = `<span class="mode-badge mode-predictive">🔮 Prediction mode — new video, scoring on potential</span>`;
+    } else {
+      badge.innerHTML = `<span class="mode-badge mode-performance">📊 Performance mode — scoring on actual results</span>`;
+    }
+
+    document.getElementById("breakdown").innerHTML = result.breakdown.map(f => `
+      <div class="factor">
+        <span class="factor-label">${f.label}</span>
+        <span class="factor-delta ${f.delta > 0 ? 'pos' : f.delta < 0 ? 'neg' : 'neu'}">
+          ${f.delta > 0 ? '+' : ''}${f.delta}
+        </span>
+      </div>`).join("");
+
+    document.getElementById("result").style.display = "block";
+  }
+
+  // ── URL PARSING ───────────────────────────────────────────────────────────
+  function extractVideoId(url) {
+    const patterns = [
+      /youtu\.be\/([^?&]+)/,
+      /youtube\.com\/watch\?v=([^&]+)/,
+      /youtube\.com\/shorts\/([^?&]+)/
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
+  // ── API FETCH ─────────────────────────────────────────────────────────────
+  async function fetchStats(videoId) {
+    const key  = getApiKey();
+    if (!key) throw new Error("No API key saved — paste your key and hit Save key");
+    const url  = `https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails,snippet&id=${videoId}&key=${key}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (!data.items || data.items.length === 0) throw new Error("Video not found");
+
+    const item        = data.items[0];
+    const snippet     = item.snippet;
+    const stats       = item.statistics;
+    const content     = item.contentDetails;
+    const publishedAt = snippet.publishedAt;
+
+    return {
+      title:        snippet.title,
+      views:        parseInt(stats.viewCount    || 0),
+      likes:        parseInt(stats.likeCount    || 0),
+      comments:     parseInt(stats.commentCount || 0),
+      duration:     parseDuration(content.duration),
+      uploadHour:   new Date(publishedAt).getUTCHours(),
+      uploadDay:    getDayName(publishedAt),
+      titleLength:  snippet.title.length,
+      hashtagCount: countHashtags(snippet.description) + countHashtags(snippet.title),
+      categoryId:   parseInt(snippet.categoryId || 0),
+    };
+  }
+
+  // ── MAIN ──────────────────────────────────────────────────────────────────
+  async function analyze() {
+    const url = document.getElementById("urlInput").value.trim();
+    const msg = document.getElementById("statusMsg");
+
+    msg.className   = "status-msg";
+    msg.textContent = "";
+    document.getElementById("result").style.display = "none";
+
+    const videoId = extractVideoId(url);
+    if (!videoId) {
+      msg.className   = "status-msg error";
+      msg.textContent = "Couldn't read that URL — try a YouTube Shorts or watch link";
+      return;
+    }
+
+    msg.className   = "status-msg loading";
+    msg.textContent = "Fetching video stats...";
+
+    try {
+      const stats = await fetchStats(videoId);
+      displayResult(stats, stats.title);
+      msg.textContent = "";
+    } catch (e) {
+      msg.className   = "status-msg error";
+      msg.textContent = "Error: " + e.message;
+    }
+  }
+
+  document.getElementById("urlInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") analyze();
+  });
+</script>
+</body>
+</html>
